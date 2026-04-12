@@ -1,2 +1,2 @@
 # GameKeith
-The gameboy keith emulator
+Gameboy emulator
