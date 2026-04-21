@@ -13,8 +13,7 @@ pub struct GameKeith{
     pub c:u8,
     pub d:u8,
     pub e:u8,
-    pub h:u8,
-    pub l:u8,
+    pub hl:u16,
     pub s:u8,
     pub p:u8,
     pub pc:u16,
@@ -40,12 +39,15 @@ impl GameKeith{
             0x05 =>{self.b = self.alu_dec(self.b);}//dec B 
             0x06 =>{self.pc +=1; self.b = self.readmem(self.pc);}//LD B n8
             0x07 =>{self.a = self.alu_rlc(self.a); self.pc +=1;}//RLCA
-            0x08 =>{}
-            ___ => {println("{}not implemented",self.rom[self.pc])}
-        }; 
+            0x08 =>{let pc = self.pc; self.pc+=2;
+                    let address =(self.pc as u16 >> 8)| pc as u16;
+                    let sp =(self.s as u16 >> 8)| self.p as u16;
+                    self.writemem(address,sp)
+            }//ld [a16] SP
+            0x09 =>{let bc =(self.b as u16 >> 8)| self.c as u16; self.alu_add16(bc);}//ADD HL BC -0HC
 
-        false
-    }
+            ___ => {println!("{}not implemented",self.rom[self.pc])}
+        };}
 
     fn cpuloop(&mut self){
         let mut instruction :u8 = self.memory[self.pc as usize];
@@ -54,9 +56,11 @@ impl GameKeith{
 
     fn readmem(&mut self, int:u16)->u8{
         return self.memory[int as usize]
+        //if sholdnt be read then return FF 
     }
     fn writemem(&mut self, address:u16,int:u8){
         self.memory[address as usize] = int;
+        //if memeroy should not be written to then dont
     }
 
     fn flag(&mut self,flag:u8,flaginput:bool){
@@ -67,7 +71,7 @@ impl GameKeith{
                 0x05 =>self.f = self.f | 0b00010000,//half carry
                 0x06 =>self.f = self.f | 0b00100000,//subtracton
                 0x07 =>self.f = self.f | 0b01000000,//zero flag
-                __ =>{println("how did we get here?");}//error
+                __ =>{println!("how did we get here?");}//error
             }}
         else{
             match flag{
@@ -75,7 +79,7 @@ impl GameKeith{
                 0x05 =>self.f = self.f & 0b11101111,//half carry
                 0x06 =>self.f = self.f & 0b11011111,//subtracton
                 0x07 =>self.f = self.f & 0b10111111,//zero flag
-                __ =>{println("how did we get here?");}//error
+                __ =>{println!("how did we get here?");}//error
             }}
     }
     fn getflag(&mut self, flag:char) -> bool{
@@ -85,7 +89,7 @@ impl GameKeith{
             H =>{temp = 0b00010000 & self.f;}
             N =>{temp = 0b00100000 & self.f;}
             Z =>{temp = 0b01000000 & self.f;}
-            _ =>{println!("what kind of flag are you looking for?");}
+            __ =>{println!("what kind of flag are you looking for?");}
         }
         if temp = 0x00{
             return false
@@ -156,6 +160,7 @@ impl GameKeith{
         self.flag(Z, r == 0);
         self.flag(H, (a & 0x0F) + 1 > 0x0F);
         self.flag(N, false);
+                    
         return r;
     }
 
@@ -168,7 +173,7 @@ impl GameKeith{
     }
 
     fn alu_add16(&mut self, b: u16) {
-        let a = self.hl();
+        let a = self.hl();//hl register u16
         let r = a.wrapping_add(b);
         self.flag(H, (a & 0x0FFF) + (b & 0x0FFF) > 0x0FFF);
         self.flag(N, false);
